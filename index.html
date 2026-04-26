@@ -1,0 +1,127 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3D Cursor Light Reveal</title>
+
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: black;
+        cursor: none;
+    }
+
+    canvas {
+        display: block;
+    }
+</style>
+</head>
+<body>
+
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+
+<script>
+let scene, camera, renderer, material, mesh;
+
+let mouse = { x: 0.5, y: 0.5 };
+
+init();
+animate();
+
+function init() {
+
+    // Scene
+    scene = new THREE.Scene();
+
+    // Camera
+    camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    const textureLoader = new THREE.TextureLoader();
+  const texture = textureLoader.load("angel.png");
+
+    material = new THREE.ShaderMaterial({
+        uniforms: {
+          uTexture: { value: texture },
+          uMouse: { value: new THREE.Vector2(0.5, 0.5) },
+          uTime: { value: 0 },
+          uRadius: { value: 0.22 },
+          uSoftness: { value: 0.4 }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D uTexture;
+          uniform vec2 uMouse;
+          uniform float uTime;
+          uniform float uRadius;
+          uniform float uSoftness;
+          varying vec2 vUv;
+
+          void main() {
+            vec4 color = texture2D(uTexture, vUv);
+
+            float dist = distance(vUv, uMouse);
+
+            float glow = smoothstep(uRadius, uRadius - uSoftness, dist);
+
+            float flicker = 0.03 * sin(uTime * 4.0);
+
+            float light = glow + flicker;
+
+            light = clamp(light, 0.0, 1.0);
+
+            gl_FragColor = vec4(color.rgb * light * 2.0, 1.0);
+          }
+        `
+    });
+
+    // Plane
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    // Mouse Move
+    window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX / window.innerWidth;
+        mouse.y = 1.0 - (e.clientY / window.innerHeight);
+        console.log('Mouse:', mouse.x, mouse.y);
+    });
+
+    // Resize
+    window.addEventListener("resize", () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
+
+function animate(time) {
+    requestAnimationFrame(animate);
+
+    material.uniforms.uMouse.value.set(mouse.x, mouse.y);
+    material.uniforms.uTime.value = time * 0.001;
+
+    mesh.position.x = (mouse.x - 0.5) * 0.05;
+    mesh.position.y = (mouse.y - 0.5) * 0.05;
+
+    renderer.render(scene, camera);
+}
+</script>
+
+</body>
+</html>
+
+
+
+
+
